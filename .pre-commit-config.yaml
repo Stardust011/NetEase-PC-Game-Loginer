@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace # 检查行尾空格
+      - id: check-yaml # 检查 yaml 文件格式
+      - id: check-toml # 检查 toml 文件格式
+      - id: end-of-file-fixer # 确保每个文件的末尾都有一个空行
+
+  # Using this mirror lets us use mypyc-compiled black, which is about 2x faster
+  # 使用该镜像可让我们使用 mypyc 编译的 black，速度快约 2 倍
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.8.0
+    hooks:
+      - id: black
+        # It is recommended to specify the latest version of Python
+        # supported by your project here, or alternatively use
+        # pre-commit's default_language_version, see
+        # https://pre-commit.com/#top_level-default_language_version
+        # language_version: python3.11
