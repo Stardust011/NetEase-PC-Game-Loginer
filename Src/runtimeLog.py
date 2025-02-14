@@ -95,20 +95,20 @@ class RuntimeLogger:
             logs_path.mkdir(exist_ok=True)
             file_path = logs_path / self.log_filename
             self._ensure_file_handler(file_path)
-            self._cleanup_old_logs()
+            self._cleanup_old_logs(logs_path)
         else:
             self._ensure_file_handler(file_path)
 
         self._ensure_file_handler(file_path or "runtime_errors.log")
 
-    def _cleanup_old_logs(self, keep: int = 10):
+    def _cleanup_old_logs(self, log_dir: Path, keep: int = 10):
         """清理旧日志文件，保留最近10个"""
         if self.log_filename is None:
             return
 
-        log_dir = Path(self.log_filename).parent
         pattern = "runtime_errors_*.log"
         files = list(log_dir.glob(pattern))
+        # print(log_dir)
 
         # 按修改时间排序（旧→新）
         files.sort(key=lambda f: f.stat().st_mtime)
