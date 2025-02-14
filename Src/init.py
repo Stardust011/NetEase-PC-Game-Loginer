@@ -49,9 +49,9 @@ def get_app_dir():
 
 """初始化"""
 try:
-    # # 检查管理员权限
-    # if not _is_admin():
-    #     _run_as_admin()
+    # 检查管理员权限
+    if not _is_admin():
+        _run_as_admin()
     dir_path_prefix = _dir_prefix()
     app_dir_path = get_app_dir()
 except Exception as e:

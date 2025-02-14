@@ -2,19 +2,20 @@
 此模块提供用于处理ssl证书。
 """
 
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 import datetime
 import os
 import platform
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+
 from Src.config import cfg
-from Src.runtimeLog import debug, info, warning, error, critical
+from Src.runtimeLog import debug, info, warning, error
 
 
 def generate_ca_cert(ca_cert_file, ca_key_file):

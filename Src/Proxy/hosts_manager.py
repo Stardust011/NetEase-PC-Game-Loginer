@@ -1,10 +1,11 @@
 # Desc: Hosts文件管理和DNS-over-HTTPS解析模块
+import asyncio
 import os
 import shutil
-import asyncio
+
 from python_hosts import Hosts, HostsEntry
 
-from Src.runtimeLog import debug, info, warning, error, critical
+from Src.runtimeLog import info, warning
 
 
 # --------------------------

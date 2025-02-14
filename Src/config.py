@@ -1,11 +1,9 @@
-from pathlib import Path
-import os
 import tomllib
+
 import tomli_w
 
-from Src.runtimeLog import debug, info, warning, error, critical
-from Src.init import dir_path_prefix, app_dir_path
-
+from Src.init import app_dir_path
+from Src.runtimeLog import debug, info, warning, error
 
 _config_file = app_dir_path / "config.toml"
 
@@ -82,7 +80,6 @@ if "proxy" not in cfg:
 if "certs_path" not in cfg:
     warning("配置文件缺少certs_path字段，自动添加")
     cfg["certs_path"] = {}
-
 
 # 初始化时可选：将目录路径存入配置（如果需要）
 if __name__ == "__main__":

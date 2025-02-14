@@ -1,12 +1,14 @@
-# Desc: 运行时日志记录器
+"""运行时日志记录器"""
+
+import datetime
 import logging
 import sys
-from rich.logging import RichHandler
-from typing import Optional, Any
-import datetime
 from pathlib import Path
+from typing import Optional, Any
 
-from Src.init import dir_path_prefix, app_dir_path
+from rich.logging import RichHandler
+
+from Src.init import app_dir_path
 
 
 class RuntimeLogger:

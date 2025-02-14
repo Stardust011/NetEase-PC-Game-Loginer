@@ -7,6 +7,7 @@ This module contains plugins for modifying HTTPS traffic for the service.mkey.16
 import json
 import re
 from urllib.parse import urlencode
+
 from mitmproxy import http
 
 # 常量开始
@@ -79,6 +80,8 @@ ExceptAddCVHeaderPaths = [
     r"/mpay/api/qrcode",
     r"/mpay/api/reverify",
 ]
+
+
 # 常量结束
 
 
