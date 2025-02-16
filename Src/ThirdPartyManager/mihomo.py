@@ -1,6 +1,10 @@
 import platform
+import subprocess
+import threading
 import zipfile
 from pathlib import Path
+from queue import Queue, Empty
+from time import sleep
 from typing import Optional, List, Dict
 
 import httpx
@@ -232,6 +236,118 @@ def add_process_to_config(process_name: str):
     yaml.dump(c, config_path.open("w", encoding="utf-8"))
 
 
+class MihomoManager:
+    def __init__(self, config_path: Path = None):
+        self.mihomo_process: Optional[subprocess.Popen] = None
+        self.mihomo_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.exe"
+        self.work_dir = app_dir_path / "ThirdParty" / "mihomo"
+
+        # 默认配置文件路径
+        self.config_path = config_path or self.work_dir / "mihomo_config.yaml"
+
+        # 输出管理
+        self.output_queue = Queue()
+        self._capture_threads = []
+        self._running = False
+
+    def start_mihomo(self):
+        """启动mihimo核心
+
+        .\mihomo.exe -f .\mihomo_config.yaml -d .
+        """
+        if self.is_running():
+            warning("mihomo已经启动")
+            return
+
+        if not self.mihomo_path.exists():
+            error(f"mihomo核心文件不存在: {self.mihomo_path}")
+            raise FileNotFoundError(f"mihomo.exe not found at {self.mihomo_path}")
+
+        args = [
+            str(self.mihomo_path),
+            "-f",
+            str(self.config_path),
+            "-d",
+            str(self.work_dir),
+        ]
+
+        try:
+            self.mihomo_process = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # 合并错误输出
+                cwd=str(self.work_dir),
+                bufsize=1,
+                universal_newlines=True,
+            )
+        except Exception as e:
+            error(f"启动mihomo失败: {str(e)}")
+            raise
+
+        self._running = True
+
+        # 启动输出捕获线程
+        self._capture_threads = [
+            threading.Thread(
+                target=self._enqueue_output,
+                args=(self.mihomo_process.stdout,),
+                daemon=True,
+            )
+        ]
+
+        for t in self._capture_threads:
+            t.start()
+
+        info("mihomo核心已启动")
+
+    def stop_mihomo(self):
+        """停止mihomo进程"""
+        if not self.is_running():
+            return
+
+        self._running = False
+
+        try:
+            # 优雅终止
+            self.mihomo_process.terminate()
+            self.mihomo_process.wait(timeout=3)
+        except ProcessLookupError:
+            pass  # 进程已终止
+        except TimeoutError:
+            warning("强制终止mihomo进程")
+            self.mihomo_process.kill()
+        finally:
+            self.mihomo_process = None
+            info("mihomo核心已停止")
+
+    def is_running(self):
+        """检查进程是否运行"""
+        return self.mihomo_process and self.mihomo_process.poll() is None
+
+    def _enqueue_output(self, stream):
+        """输出捕获线程"""
+        while self._running:
+            try:
+                line = stream.readline()
+                if line:
+                    self.output_queue.put(line.strip())
+            except ValueError:
+                break  # 流已关闭
+
+    def get_output(self, timeout=0.1):
+        """获取捕获的输出"""
+        outputs = []
+        while True:
+            try:
+                outputs.append(self.output_queue.get(timeout=timeout))
+            except Empty:
+                break
+        return outputs
+
+    def __del__(self):
+        self.stop_mihomo()
+
+
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser(
     #     description="Mihomo Release Downloader",
@@ -247,5 +363,21 @@ if __name__ == "__main__":
     # asyncio.run(download_main())
     # create_config_mihomo_yaml()
     # add_process_to_config('test.exe')
-    output_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.zip"
-    _unzip_and_clean_and_rename(output_path)
+    # output_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.zip"
+    # _unzip_and_clean_and_rename(output_path)
+
+    manager = MihomoManager()
+
+    try:
+        manager.start_mihomo()
+        sleep(3)
+        print("运行状态:", manager.is_running())
+
+        # 获取实时输出
+        while manager.is_running():
+            for line in manager.get_output():
+                print("[mihomo]", line)
+            sleep(0.5)
+
+    finally:
+        manager.stop_mihomo()
