@@ -1,15 +1,13 @@
-import httpx
 import platform
-import argparse
-import logging
-import os
-import asyncio
-from typing import Optional, List, Dict
+import zipfile
 from pathlib import Path
+from typing import Optional, List, Dict
 
-from Src.config import cfg
+import httpx
+import yaml
+
 from Src.init import app_dir_path
-from Src.runtimeLog import debug, info, warning, error, critical
+from Src.runtimeLog import debug, info, warning, error
 
 ARCH_MAPPING = {
     "x86_64": "amd64",
@@ -115,7 +113,7 @@ async def download_file(url: str, path: Path):
                         )
 
 
-async def main(use_mirror: str = None):
+async def download_main(use_mirror: str = None):
     """主函数"""
     os_type, arch = get_system_info()
     info(f"System detected: OS={os_type}, Arch={arch}")
@@ -147,9 +145,7 @@ async def main(use_mirror: str = None):
     if use_mirror:
         download_url = download_url.replace("https://github.com", use_mirror)
 
-    # output_path = os.path.join(args.output, selected['name'])
-    # os.makedirs(args.output, exist_ok=True)
-    output_path = Path(app_dir_path) / "ThirdParty" / "mihomo" / "mihomo.exe"
+    output_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.zip"
     output_path.parent.mkdir(exist_ok=True)
 
     info(f"Downloading {selected['name']}...")
@@ -159,6 +155,81 @@ async def main(use_mirror: str = None):
     except Exception as e:
         error(f"Download failed: {str(e)}")
         output_path.unlink(missing_ok=True)
+
+    # 解压ZIP, 并覆盖原先的程序
+    if _unzip_and_clean_and_rename(output_path) is False:
+        return
+
+
+def _unzip_and_clean_and_rename(zip_path: Path) -> bool:
+    """解压下载来的zip文件，并清理原始zip，修改解压后的文件名称"""
+    # 解压
+    try:
+        with zipfile.ZipFile(zip_path, mode="r") as z:
+            z.extractall(zip_path.parent)
+    except Exception as e:
+        error(f"解压失败 {e}")
+        return False
+    # 清理原始文件
+    zip_path.unlink(missing_ok=True)
+    # 重命名为mihomo.exe
+    files = [path for path in zip_path.parent.glob("mihomo-*.exe")]
+    if len(files) > 1:
+        warning("检测到有多个mihomo核心文件，自动取最新创建的文件")
+        files.sort(key=lambda x: x.stat().st_ctime, reverse=True)
+    elif not files:
+        error("未找到 mihomo 核心文件")
+        return False
+
+    # 重命名文件
+    target_file = files[0]
+    target_file.replace(zip_path.parent / "mihomo.exe")
+    info(f"重命名(或覆盖) {target_file} 为 mihomo.exe")
+    return True
+
+
+def create_config_mihomo_yaml(ports: int = 8443, tun: bool = True):
+    config = {
+        "mixed-port": 17890,
+        "mode": "rule",
+        "tun": {
+            "enable": tun,
+            "stack": "mixed",
+            "dns-hijack": ["any:53"],
+            "auto-route": True,
+            "auto-detect-interface": True,
+        },
+        "proxies": [
+            {
+                "name": "Proxy_HTTP",
+                "server": "127.0.0.1",
+                "port": ports,
+                "type": "http",
+                # "tls": True,
+                # "skip-cert-verify": True,
+                # "alpn": ["http/1.1"],
+            }
+        ],
+        "rules": [
+            "PROCESS-NAME, dwrg.exe, Proxy_HTTP",
+            # "DOMAIN-SUFFIX,mkey.163.com, Proxy_HTTP",
+            "MATCH,DIRECT",
+        ],
+        "external-controller": "127.0.0.1:9090",
+        "external-controller-cors": {
+            "allow-origins": ["*"],
+            "allow-private-network": True,
+        },
+    }
+    config_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo_config.yaml"
+    yaml.dump(config, config_path.open("w", encoding="utf-8"))
+
+
+def add_process_to_config(process_name: str):
+    config_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo_config.yaml"
+    c = yaml.full_load(config_path.open("r", encoding="utf-8"))
+    c["rules"] = [f"PROCESS-NAME, {process_name}, Proxy_HTTP"] + c["rules"]
+    yaml.dump(c, config_path.open("w", encoding="utf-8"))
 
 
 if __name__ == "__main__":
@@ -173,4 +244,8 @@ if __name__ == "__main__":
     #
     # args = parser.parse_args()
 
-    asyncio.run(main())
+    # asyncio.run(download_main())
+    # create_config_mihomo_yaml()
+    # add_process_to_config('test.exe')
+    output_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.zip"
+    _unzip_and_clean_and_rename(output_path)
