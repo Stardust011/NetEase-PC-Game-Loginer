@@ -20,6 +20,31 @@ def download():
     pass
 
 
+def check_mitmproxy_exist():
+    """检查mitmdump.exe, plugin是否存在
+
+    Returns:
+        int:
+        0: All files exist
+
+        1: mitmdump.exe missing
+
+        2: plugin missing
+
+        3: All missing"""
+    exe_path = app_dir_path / "ThirdParty" / "mitmproxy" / "mitmdump.exe"
+    plugin_path = (
+        app_dir_path / "ThirdParty" / "mitmproxy" / "MITM_4_service_mkey_163_com.py"
+    )
+    if (exe_path.exists() is False) and (plugin_path.exists() is False):
+        return 3
+    if exe_path.exists() is False:
+        return 1
+    if plugin_path.exists() is False:
+        return 2
+    return 0
+
+
 def move_plugin_to_app_dir_path():
     mv_to_file = (
         app_dir_path / "ThirdParty" / "mitmproxy" / "MITM_4_service_mkey_163_com.py"

@@ -4,7 +4,6 @@ import threading
 import zipfile
 from pathlib import Path
 from queue import Queue, Empty
-from time import sleep
 from typing import Optional, List, Dict
 
 import httpx
@@ -13,7 +12,7 @@ import yaml
 from Src.init import app_dir_path
 from Src.runtimeLog import debug, info, warning, error
 
-ARCH_MAPPING = {
+_ARCH_MAPPING = {
     "x86_64": "amd64",
     "amd64": "amd64",
     "i386": "386",
@@ -23,7 +22,7 @@ ARCH_MAPPING = {
     "armv5": "armv5",
 }
 
-EXTENSION_PRIORITY = {
+_EXTENSION_PRIORITY = {
     "linux": [".deb", ".rpm", ".gz"],
     "windows": [".zip"],
     "darwin": [".gz", ".zip"],
@@ -33,7 +32,7 @@ EXTENSION_PRIORITY = {
 def normalize_arch(raw_arch: str) -> str:
     """标准化架构名称"""
     arch = raw_arch.lower()
-    return ARCH_MAPPING.get(arch, arch)
+    return _ARCH_MAPPING.get(arch, arch)
 
 
 def get_system_info() -> tuple[str, str]:
@@ -50,11 +49,11 @@ def get_asset_key(name: str, os_type: str) -> tuple:
     # 扩展名优先级
     ext_priority = next(
         (
-            EXTENSION_PRIORITY[os_type].index(ext)
-            for ext in EXTENSION_PRIORITY[os_type]
+            _EXTENSION_PRIORITY[os_type].index(ext)
+            for ext in _EXTENSION_PRIORITY[os_type]
             if name.endswith(ext)
         ),
-        len(EXTENSION_PRIORITY[os_type]),
+        len(_EXTENSION_PRIORITY[os_type]),
     )
 
     # 附加信息权重
@@ -236,6 +235,29 @@ def add_process_to_config(process_name: str):
     yaml.dump(c, config_path.open("w", encoding="utf-8"))
 
 
+def check_mihomo_exist() -> int:
+    """检查mihomo.exe, mihomo_config.yaml是否存在
+
+    Returns:
+        int:
+        0: All files exist
+
+        1: mihomo.exe missing
+
+        2: mihomo_config.yaml missing
+
+        3: All missing"""
+    config_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo_config.yaml"
+    exe_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.exe"
+    if (exe_path.exists() is False) and (config_path.exists() is False):
+        return 3
+    if exe_path.exists() is False:
+        return 1
+    if config_path.exists() is False:
+        return 2
+    return 0
+
+
 class MihomoManager:
     def __init__(self, config_path: Path = None):
         self.mihomo_process: Optional[subprocess.Popen] = None
@@ -253,7 +275,7 @@ class MihomoManager:
     def start_mihomo(self):
         """启动mihimo核心
 
-        .\mihomo.exe -f .\mihomo_config.yaml -d .
+        mihomo.exe -f mihomo_config.yaml -d .
         """
         if self.is_running():
             warning("mihomo已经启动")
@@ -366,18 +388,20 @@ if __name__ == "__main__":
     # output_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.zip"
     # _unzip_and_clean_and_rename(output_path)
 
-    manager = MihomoManager()
+    # manager = MihomoManager()
+    #
+    # try:
+    #     manager.start_mihomo()
+    #     sleep(3)
+    #     print("运行状态:", manager.is_running())
+    #
+    #     # 获取实时输出
+    #     while manager.is_running():
+    #         for line in manager.get_output():
+    #             print("[mihomo]", line)
+    #         sleep(0.5)
+    #
+    # finally:
+    #     manager.stop_mihomo()
 
-    try:
-        manager.start_mihomo()
-        sleep(3)
-        print("运行状态:", manager.is_running())
-
-        # 获取实时输出
-        while manager.is_running():
-            for line in manager.get_output():
-                print("[mihomo]", line)
-            sleep(0.5)
-
-    finally:
-        manager.stop_mihomo()
+    print(check_exe_and_yaml_exist())
