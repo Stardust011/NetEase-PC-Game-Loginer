@@ -1,4 +1,5 @@
 import platform
+import re
 import subprocess
 import threading
 import zipfile
@@ -198,6 +199,7 @@ def create_config_mihomo_yaml(ports: int = 8443, tun: bool = True):
         "tun": {
             "enable": tun,
             "stack": "mixed",
+            "strict-route": False,
             "dns-hijack": ["any:53"],
             "auto-route": True,
             "auto-detect-interface": True,
@@ -222,6 +224,14 @@ def create_config_mihomo_yaml(ports: int = 8443, tun: bool = True):
         "external-controller-cors": {
             "allow-origins": ["*"],
             "allow-private-network": True,
+        },
+        "dns": {
+            "enable": True,
+            "ipv6": True,
+            "default-nameserver": ["223.5.5.5"],
+            "enhanced-mode": "fake-ip",
+            "fake-ip-range": "172.29.0.1/16",
+            "nameserver": ["223.5.5.5", "223.6.6.6"],
         },
     }
     config_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo_config.yaml"
@@ -273,16 +283,18 @@ class MihomoManager:
         self._running = False
 
     def start_mihomo(self):
-        """启动mihimo核心
+        """启动mihomo核心
 
         mihomo.exe -f mihomo_config.yaml -d .
         """
         if self.is_running():
-            warning("mihomo已经启动")
+            warning("[italic yellow]MIHOMO:[/italic yellow] mihomo已经启动")
             return
 
         if not self.mihomo_path.exists():
-            error(f"mihomo核心文件不存在: {self.mihomo_path}")
+            error(
+                f"[italic yellow]MIHOMO:[/italic yellow] mihomo核心文件不存在: {self.mihomo_path}"
+            )
             raise FileNotFoundError(f"mihomo.exe not found at {self.mihomo_path}")
 
         args = [
@@ -298,12 +310,13 @@ class MihomoManager:
                 args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,  # 合并错误输出
-                cwd=str(self.work_dir),
-                bufsize=1,
-                universal_newlines=True,
+                # cwd=str(self.work_dir),
+                # bufsize=1,
+                # universal_newlines=True,
+                # encoding = 'utf-8'
             )
         except Exception as e:
-            error(f"启动mihomo失败: {str(e)}")
+            error(f"[italic yellow]MIHOMO:[/italic yellow] 启动mihomo失败: {str(e)}")
             raise
 
         self._running = True
@@ -320,7 +333,7 @@ class MihomoManager:
         for t in self._capture_threads:
             t.start()
 
-        info("mihomo核心已启动")
+        info("[italic yellow]MIHOMO:[/italic yellow] mihomo核心已启动")
 
     def stop_mihomo(self):
         """停止mihomo进程"""
@@ -336,11 +349,11 @@ class MihomoManager:
         except ProcessLookupError:
             pass  # 进程已终止
         except TimeoutError:
-            warning("强制终止mihomo进程")
+            warning("[italic yellow]MIHOMO:[/italic yellow] 强制终止mihomo进程")
             self.mihomo_process.kill()
         finally:
             self.mihomo_process = None
-            info("mihomo核心已停止")
+            info("[italic yellow]MIHOMO:[/italic yellow] mihomo核心已停止")
 
     def is_running(self):
         """检查进程是否运行"""
@@ -350,11 +363,25 @@ class MihomoManager:
         """输出捕获线程"""
         while self._running:
             try:
-                line = stream.readline()
+                line = stream.readline().strip().decode("utf-8")
+                # print(line)
                 if line:
-                    self.output_queue.put(line.strip())
+                    if "ProcessName/dwrg.exe" in line:
+                        self._log_out(line)
+                        self.output_queue.put(line)
+                    if 'level=info msg="[' not in line:
+                        self._log_out(line)
+                        self.output_queue.put(line)
             except ValueError:
                 break  # 流已关闭
+
+    def _log_out(self, line):
+        p = re.compile('.*level=(.*) msg="(.*)"')
+        try:
+            _log_level, _msg = p.findall(line)[0]
+            eval(f"{_log_level}('[italic yellow]MIHOMO:[/italic yellow] {_msg}')")
+        except Exception as e:
+            error(f"[italic yellow]MIHOMO:[/italic yellow] 未知错误: {e}")
 
     def get_output(self, timeout=0.1):
         """获取捕获的输出"""
@@ -383,25 +410,28 @@ if __name__ == "__main__":
     # args = parser.parse_args()
 
     # asyncio.run(download_main())
-    # create_config_mihomo_yaml()
+    create_config_mihomo_yaml()
     # add_process_to_config('test.exe')
     # output_path = app_dir_path / "ThirdParty" / "mihomo" / "mihomo.zip"
     # _unzip_and_clean_and_rename(output_path)
 
-    # manager = MihomoManager()
-    #
-    # try:
-    #     manager.start_mihomo()
-    #     sleep(3)
-    #     print("运行状态:", manager.is_running())
-    #
-    #     # 获取实时输出
-    #     while manager.is_running():
-    #         for line in manager.get_output():
-    #             print("[mihomo]", line)
-    #         sleep(0.5)
-    #
-    # finally:
-    #     manager.stop_mihomo()
+    manager = MihomoManager()
 
-    print(check_exe_and_yaml_exist())
+    try:
+        import time
+
+        manager.start_mihomo()
+        time.sleep(1)
+        print("运行状态:", manager.is_running())
+        input()
+
+        # # 获取实时输出
+        # while manager.is_running():
+        #     for line in manager.get_output():
+        #         print("[mihomo]", line)
+        #     time.sleep(0.5)
+
+    finally:
+        manager.stop_mihomo()
+
+    # print(check_exe_and_yaml_exist())

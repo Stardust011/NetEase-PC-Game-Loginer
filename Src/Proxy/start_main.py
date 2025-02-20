@@ -12,10 +12,12 @@ from Src.ThirdPartyManager.mihomo import (
     download_main,
     create_config_mihomo_yaml,
     check_mihomo_exist,
+    MihomoManager,
 )
 from Src.ThirdPartyManager.mitmproxy import (
     check_mitmproxy_exist,
     move_plugin_to_app_dir_path,
+    MitmproxyManager,
 )
 from Src.config import cfg
 from Src.runtimeLog import info, warning
@@ -81,10 +83,34 @@ def check_completeness():
 
 
 def start_all():
+    global Mihomo, Mitmproxy
     check_completeness()
+    # 启动Mihomo
+    Mihomo = MihomoManager()
+    Mihomo.start_mihomo()
+
+    # 启动Mitmproxy
+    Mitmproxy = MitmproxyManager()
+    Mitmproxy.start_mitmproxy()
 
     pass
 
 
 if __name__ == "__main__":
+    from typing import Optional
+    from rich import print
+
+    Mihomo: Optional[MihomoManager] = None
+    Mitmproxy: Optional[MitmproxyManager] = None
     start_all()
+    while True:
+        _ = input()
+        if _ == "log":
+            m_out = Mihomo.get_output()
+            print(f"Mihomo: {m_out}")
+            p_out = Mitmproxy.get_output()
+            print(f"Mitm: {p_out}")
+        else:
+            break
+    Mitmproxy.stop_mitmproxy()
+    Mihomo.stop_mihomo()
