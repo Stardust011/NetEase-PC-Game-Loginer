@@ -20,12 +20,18 @@ def _run_as_admin():
 
 
 def _dir_prefix():
-    """检查是否在临时文件夹, 返回完整路径"""
-    if getattr(sys, "frozen", False):
-        # Running in a bundle
+    """返回完整工作路径前缀"""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        # Running in a PyInstaller bundle.
         bundle_dir = Path(sys._MEIPASS)
+    elif "__compiled__" in globals():
+        # Running in a Nuitka compiled environment.
+        bundle_dir = Path(sys.executable).parent.absolute()
     else:
-        bundle_dir = Path(".")
+        # Running in a normal Python environment.
+        bundle_dir = Path.cwd()
+        while "Src" in str(bundle_dir):
+            bundle_dir = bundle_dir.parent
     return bundle_dir
 
 
