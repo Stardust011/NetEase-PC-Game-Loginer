@@ -195,19 +195,23 @@ class MitmproxyManager:
                 break
 
     def _log_out(self, line):
-        p = re.compile(r"<(.*)>(.*)</.*>")
+        p = re.compile(r"<([^>]+)>(.*?)</\1>")
         try:
             if p.match(line):
                 name, msg = p.findall(line)[0]
-                try:
-                    eval(
-                        f"{name.lower()}('[italic yellow] MITM :[/italic yellow] {msg}')"
-                    )
-                except NameError:
-                    eval(
-                        f"info('[italic yellow] MITM :[/italic yellow] {name}事件已捕获')"
-                    )
+                # 日志输出
+                _name = name.lower()
+                if (
+                    _name == "debug"
+                    or _name == "info"
+                    or _name == "warning"
+                    or _name == "error"
+                ):
+                    eval(f"{_name}('[italic yellow] MITM :[/italic yellow] {msg}')")
+                else:
+                    info(f"[italic yellow] MITM :[/italic yellow] {name}事件已捕获")
                     # TODO: 处理捕获后事件
+
             else:
                 eval(f"info('[italic yellow] MITM :[/italic yellow] {line}')")
         except Exception as e:
