@@ -1,6 +1,7 @@
 """用于启动代理进程"""
 
 import sys
+from typing import Optional
 
 from Src.Proxy.ssl_cert_manager import (
     check_ca_certs_install,
@@ -82,6 +83,10 @@ def check_completeness():
         return
 
 
+Mihomo: Optional[MihomoManager] = None
+Mitmproxy: Optional[MitmproxyManager] = None
+
+
 def start_all():
     global Mihomo, Mitmproxy
     check_completeness()
@@ -96,12 +101,18 @@ def start_all():
     pass
 
 
+def stop_all():
+    global Mihomo, Mitmproxy
+    if Mihomo is not None:
+        Mihomo.stop_mihomo()
+    if Mitmproxy is not None:
+        Mitmproxy.stop_mitmproxy()
+    pass
+
+
 if __name__ == "__main__":
-    from typing import Optional
     from rich import print
 
-    Mihomo: Optional[MihomoManager] = None
-    Mitmproxy: Optional[MitmproxyManager] = None
     start_all()
     while True:
         _ = input()
@@ -112,5 +123,4 @@ if __name__ == "__main__":
             print(f"Mitm: {p_out}")
         else:
             break
-    Mitmproxy.stop_mitmproxy()
-    Mihomo.stop_mihomo()
+    stop_all()
